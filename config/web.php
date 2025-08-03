@@ -31,7 +31,8 @@ $config = [
                 $response = $event->sender;
                 if ($response->statusCode == 404) {
                     $response->data = [
-                        'message' => 'not found'
+                        'code' => 404,
+                        'message' => 'Не найдено'
                     ];
                 }
                 if ($response->statusCode == 401) {
@@ -41,7 +42,8 @@ $config = [
                 }
                 if ($response->statusCode == 403) {
                     $response->data = [
-                        'message' => 'forbidden for you'
+                        'code' => 404,
+                        'message' => 'Недоступно для вас'
                     ];
                 }
             },
@@ -89,6 +91,10 @@ $config = [
                 "POST api/user/login" => 'user/login',
                 "OPTIONS api/user/login" => 'user/options',
                 "POST api/meet" => 'meetings/create',
+                "OPTIONS api/meet" => 'meetings/options',
+                "DELETE api/meet/<meetHash>/<leaderHash>/user/<userId>" => 'meetings/delete-user',
+                "OPTIONS api/meet" => 'meetings/options',
+                "DELETE api/meet/<meetHash>/<leaderHash>/file/<filename>" => 'meetings/delete-file',
                 "OPTIONS api/meet" => 'meetings/options',
             ],
         ]

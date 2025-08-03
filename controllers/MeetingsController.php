@@ -3,8 +3,10 @@
 namespace app\controllers;
 
 use app\models\DatesMeetings;
+use app\models\Files;
 use app\models\Meetings;
 use app\models\User;
+use app\models\UsersMeetings;
 use Yii;
 use yii\filters\auth\HttpBearerAuth;
 
@@ -70,7 +72,7 @@ class MeetingsController extends \yii\rest\ActiveController
 
     public function actionCreate()
     {
-        
+
         $model = new Meetings();
         $post = Yii::$app->request->post();
 
@@ -78,7 +80,7 @@ class MeetingsController extends \yii\rest\ActiveController
         if ($model->validate()) {
             $user = User::findOne(['email' => $post['email']]);
             if ($user) {
-                if ($user->validatePassword($post['password'])) {
+                if (!$user->validatePassword($post['password'])) {
                     Yii::$app->response->statusCode = 403;
                 }
             } else {
@@ -86,6 +88,7 @@ class MeetingsController extends \yii\rest\ActiveController
                 $user->load($post, '');
                 $user->password = Yii::$app->getSecurity()->generatePasswordHash($user->password);
                 $user->token = Yii::$app->security->generateRandomString();
+                $user->hash = Yii::$app->security->generateRandomString();
                 if ($user->save()) {
                 } else {
                     return $this->asJson([
@@ -97,7 +100,7 @@ class MeetingsController extends \yii\rest\ActiveController
                     ]);
                 };
             }
-            $user->hash = Yii::$app->security->generateRandomString();
+
             $user->save(false);
 
             $model->hash = Yii::$app->security->generateRandomString();
@@ -135,5 +138,42 @@ class MeetingsController extends \yii\rest\ActiveController
         } else {
             return $model->getErrors();
         }
+    }
+
+    public function actionDeleteUser($meetHash, $leaderHash, $userId)
+    {
+        $model_user_in_meet = UsersMeetings::findOne(['users_id' => $userId]);
+        $model_meet = Meetings::findOne(['hash' => $meetHash]);
+        $model_leader = User::findOne(['hash' => $leaderHash]);
+        if ($model_user_in_meet && $model_meet && $model_leader) {
+            if ($model_meet->leader_id == $model_leader->id) {
+                Yii::$app->response->statusCode = 204;
+                $model_meet->delete();
+            } else {
+                Yii::$app->response->statusCode = 403;
+            }
+        } else {
+            Yii::$app->response->statusCode = 404;
+        }
+    }
+
+    public function actionDeleteFile($meetHash, $leaderHash, $filename)
+    {
+        $model_meet = Meetings::findOne(['hash' => $meetHash]);
+        $model_leader = User::findOne(['hash' => $leaderHash]);
+
+        if ($model_meet) {
+            if ($model_meet->leader_id == $model_leader->id) {
+                $model_files = Files::findOne(['meetings_id' => $model_meet->id, 'filename' => $filename]);
+                Yii::$app->response->statusCode = 204;
+                $model_files->delete();
+            } else {
+                Yii::$app->response->statusCode = 403;
+            }
+        } else {
+            Yii::$app->response->statusCode = 404;
+        }
+
+        return ['Jesus is Kind forever :))))))', $meetHash, $leaderHash, $filename];
     }
 }
