@@ -71,6 +71,7 @@ class UserController extends \yii\rest\ActiveController
     {
         $model = new User();
         $model->load(Yii::$app->request->post(), '');
+        
         if ($model->validate()) {
             $user = User::findOne(['email' => $model->email]);
             if ($user && $user->validatePassword($model->password)) {

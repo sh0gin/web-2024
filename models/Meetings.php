@@ -3,7 +3,7 @@
 namespace app\models;
 
 use Yii;
-
+use yii\validators\DateValidator;
 /**
  * This is the model class for table "meetings".
  *
@@ -27,6 +27,7 @@ class Meetings extends \yii\db\ActiveRecord
     public $dates;
     public $confirm;
     public $email;
+    public $current_time;
 
     /**
      * {@inheritdoc}
@@ -42,12 +43,26 @@ class Meetings extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['title', 'start', 'end', 'password'], 'required'],
+            [['title', 'password'], 'required'],
             [['password'], 'match', 'pattern' => '/(?=.*\*)[A-Za-z0-9]{7,10}/'],
             ['email', 'email'],
             [['confirm'], 'boolean', 'trueValue' => 1, 'falseValue' => 0],
-            ['start', 'time', 'format' => 'kk:mm'],
+            ['start', 'time', 'format' => 'kk:mm',],
             ['end', 'time', 'format' => 'kk:mm'],
+            ['start', 'default', 'value' => '09:00:00'],
+            ['end', 'default', 'value' => '18:00:00'],
+            [['dates'], 'required', 'message' => 'Количество дат должно быть от 1 до 5'],
+            [['dates'], 'validateArray'],
+            [['dates'], 'validateDatesEqual'],
+            [['dates'], 'each', 'rule' => ['date', 'format' => 'php:d-m-Y', 'min' => strtotime(date('Y-m-d')), 'max' => time() + 2592000, 'message' => 'Дату встречи можно выбрать только на 30 дней вперёд']],
+
+
+
+
+            // ['dates',  'compare', 'compareValue' => time(), 'operator' => '>='],
+
+            
+            // , 'timestampAttribute' => 'dates', 'timestampAttributeTimeZone' => 'Europe/Moscow', 'min' => '08-01-2025'
             // [['description'], 'default', 'value' => null],
             // [['is_block'], 'default', 'value' => 0],
             // [['description'], 'string'],
@@ -74,6 +89,25 @@ class Meetings extends \yii\db\ActiveRecord
             'end' => 'End',
             'is_block' => 'Is Block',
         ];
+    }
+    
+    public function validateArray($attribute, $params)
+    {
+        if (!(count($this->$attribute) >= 1 && count($this->$attribute) <= 5)) {
+            $this->addError($attribute, 'Количество дат должно быть от 1 до 5');
+        }
+    }
+
+    public function validateDatesEqual($attribute, $params)
+    {
+        foreach ($this->$attribute as $key => $value) {
+            foreach ($this->$attribute as $key2 => $value2) {
+                if ($key !== $key2 && $value === $value2) {
+                    $this->addError($attribute, 'Даты не должны совпадать');
+                    return;
+                }
+            }
+        }
     }
 
     /**

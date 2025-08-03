@@ -2,6 +2,7 @@
 
 namespace app\controllers;
 
+use app\models\DatesMeetings;
 use app\models\Meetings;
 use app\models\User;
 use Yii;
@@ -69,24 +70,68 @@ class MeetingsController extends \yii\rest\ActiveController
 
     public function actionCreate()
     {
-
+        
         $model = new Meetings();
         $post = Yii::$app->request->post();
+
         $model->load($post, '');
         if ($model->validate()) {
-
             $user = User::findOne(['email' => $post['email']]);
             if ($user) {
-                $user_id = $user->id;
+                if ($user->validatePassword($post['password'])) {
+                    Yii::$app->response->statusCode = 403;
+                }
             } else {
                 $user = new User();
                 $user->load($post, '');
+                $user->password = Yii::$app->getSecurity()->generatePasswordHash($user->password);
                 $user->token = Yii::$app->security->generateRandomString();
-                $user->save();
-                $user_id = $user->id;
+                if ($user->save()) {
+                } else {
+                    return $this->asJson([
+                        'error' => [
+                            'code' => 422,
+                            'message' => 'Validation error',
+                            'errors' => $model->getErrors(),
+                        ]
+                    ]);
+                };
             }
             $user->hash = Yii::$app->security->generateRandomString();
-            return $model;
+            $user->save(false);
+
+            $model->hash = Yii::$app->security->generateRandomString();
+            $model->leader_id = $user->id;
+            $model->save(false);
+
+            foreach ($model->dates as $value) {
+
+                $model_date = new DatesMeetings();
+                $model_date->meetings_id = $model->id;
+                $model_date->date = date('Y-m-d', strtotime($value));
+                if ($model_date->save()) {
+                } else {
+                    return $this->asJson([
+                        'error' => [
+                            'code' => 422,
+                            'message' => 'Validation error',
+                            'errors' => $model_date->getErrors(),
+                        ]
+                    ]);
+                }
+            }
+
+            return $this->asJson([
+                'data' => [
+                    'meet' => [
+                        'hash' => $model->hash,
+                    ],
+                    'user' => [
+                        'id' => $user->id,
+                        'leaderHash' => $user->hash,
+                    ]
+                ]
+            ]);
         } else {
             return $model->getErrors();
         }
