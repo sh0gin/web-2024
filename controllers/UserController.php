@@ -70,6 +70,7 @@ class UserController extends \yii\rest\ActiveController
     public function actionLogin()
     {
         $model = new User();
+        $model->scenario = 'login';
         $model->load(Yii::$app->request->post(), '');
         
         if ($model->validate()) {

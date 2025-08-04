@@ -8,7 +8,9 @@ use app\models\Meetings;
 use app\models\User;
 use app\models\UsersMeetings;
 use Yii;
+use yii\db\Query;
 use yii\filters\auth\HttpBearerAuth;
+use yii\web\UploadedFile;
 
 class MeetingsController extends \yii\rest\ActiveController
 {
@@ -75,7 +77,6 @@ class MeetingsController extends \yii\rest\ActiveController
 
         $model = new Meetings();
         $post = Yii::$app->request->post();
-
         $model->load($post, '');
         if ($model->validate()) {
             $user = User::findOne(['email' => $post['email']]);
@@ -85,6 +86,7 @@ class MeetingsController extends \yii\rest\ActiveController
                 }
             } else {
                 $user = new User();
+                $user->scenario = 'login';
                 $user->load($post, '');
                 $user->password = Yii::$app->getSecurity()->generatePasswordHash($user->password);
                 $user->token = Yii::$app->security->generateRandomString();
@@ -175,5 +177,167 @@ class MeetingsController extends \yii\rest\ActiveController
         }
 
         return ['Jesus is Kind forever :))))))', $meetHash, $leaderHash, $filename];
+    }
+
+    public function actionBlockMeetings($meetHash, $leaderHash)
+    {
+        $model_meet = Meetings::findOne(['hash' => $meetHash]);
+        $model_leader = User::findOne(['hash' => $leaderHash]);
+
+        if ($model_meet) {
+            if ($model_meet->leader_id == $model_leader->id) {
+                if (!$model_meet->is_block) {
+                    $model_meet->is_block = 1;
+                } else {
+                    Yii::$app->response->statusCode = 409;
+                    return $this->asJson([
+                        'error' => [
+                            'code' => 409,
+                            'message' => 'Встреча уже заблокированна',
+                        ]
+                    ]);
+                }
+            } else {
+                Yii::$app->response->statusCode = 403;
+            }
+        } else {
+            Yii::$app->response->statusCode = 404;
+        }
+    }
+
+    public function actionUploadFiles($meetHash, $leaderHash)
+    {
+        $model = new Files();
+        $meetings_id = Meetings::findOne(['hash' => $meetHash])->id;
+        $leader_id = User::findOne(['hash' => $leaderHash])->id;
+
+        if ($meetings_id) {
+            if (Meetings::findOne(['hash' => $meetHash])->leader_id == $leader_id) {
+                if (UploadedFile::getInstancesByName('img')) {
+                    $model->scenario = "img";
+                    $model->meetings_id = $meetings_id;
+                    $model->filename = UploadedFile::getInstancesByName('img');
+                    $model->extension = $model->filename[0]->extension;
+                } else  if (UploadedFile::getInstancesByName('files')) {
+                    $model->filename = UploadedFile::getInstancesByName('files');
+                    $model->scenario = "files";
+                    $model->meetings_id = $meetings_id;
+                    $model->extension = 'pdf';
+                } else {
+                    return $this->asJson([
+                        'error' => [
+                            'code' => 422,
+                            'message' => 'Validation error',
+                            'errors' => [
+                                'files' => 'Вы не загрузили файл',
+                            ],
+                        ]
+                    ]);
+                }
+
+                if ($model->validate()) {
+                    foreach (UploadedFile::getInstancesByName($model->scenario) as $value) {
+                        $model = new Files();
+                        $model->meetings_id = $meetings_id;
+                        $model->extension = $value->extension;
+                        $model->filename = $model->upload($value);
+                        $model->save(false);
+                    }
+                    Yii::$app->response->statusCode = 204;
+                } else {
+                    return $this->asJson([
+                        $model->getErrors(),
+                    ]);
+                }
+            } else {
+                Yii::$app->response->statusCode = 403;
+            }
+        } else {
+            Yii::$app->response->statusCode = 404;
+        }
+    }
+
+    public function actionSendEmails($meetHash, $leaderHash)
+    {
+        $meetings = Meetings::findOne(['hash' => $meetHash]);
+
+        if ($meetings) {
+            $user = User::findOne(['hash' => $leaderHash]);
+            if ($user) {
+                $query = new Query();
+
+                $query->select(['users_meetings.id', 'users.email']) // 
+                    ->from('users_meetings')
+                    ->leftJoin('users', 'users_meetings.users_id = users.id')
+                    ->where(['meetings_id' => $meetings->id]);
+
+                foreach (Yii::$app->request->post() as $value) {
+                    $last = $query->where(['users.email' => $value])->all();
+                    if (!$last) {
+                        return $this->asJson([
+                            'error' => [
+                                'code' => 422,
+                                'message' => 'Validation error',
+                                'errors' => [
+                                    "Являеться не корректным E-mail адресом",
+                                ],
+                            ]
+                        ]);
+                    };
+                }
+                Yii::$app->response->statusCode = 204;
+            } else {
+                Yii::$app->response->statusCode = 403;
+            }
+        } else {
+            Yii::$app->response->statusCode = 404;
+        }
+    }
+
+    public function actionViewMeeting($meetHash)
+    {
+        $model = Meetings::findOne(['hash' => $meetHash]);
+        if ($model) {
+            $leader = User::findOne($model->leader_id);
+            $query = new Query();
+            $dates = array_reduce($query->select('date')->from('dates_meetings')->where(['meetings_id' => $model->id])->all(), function ($carry, $item) {
+                $carry[] = $item['date'];
+                return $carry;
+            });
+            $image = Files::findOne(['meetings_id' => $model->id, 'extension' => ['png', 'jpg', 'jpeg']])->filename;
+            $files = array_reduce(Files::find()->where(['meetings_id' => $model->id, 'extension' => ['pdf']])->all(), function ($carry, $item) {
+                $carry[] = $item['filename'];
+                return $carry;
+            });
+            $query = new Query();
+            $users = array_reduce($query->select('users.email, users.id, availables')->from('users_meetings')->where(['meetings_id' => $model->id])->leftJoin('users', 'users.id = users_meetings.users_id')->all(), function ($carry, $item) {
+                $carry[$item['email']] = ['id' => $item['id'], 'availables' => $item['availables']];
+                return $carry;
+            });
+
+
+            return $this->asJson([
+                'meet' => [
+                    'title' => $model->title,
+                    'description' => $model->description,
+                    'dates' => $dates,
+                    'start' => $model->start,
+                    'end' => $model->end,
+                    'interval' => 60,
+                    'block' => $model->is_block,
+                    'user' => $users,
+                    'leader' => [
+                        'id' => $leader->id,
+                        'login' => $leader->email,
+                    ],
+                    'img' => $image,
+                    'files' => $files,
+                ]
+            ]);
+        } else {
+            Yii::$app->request->statusCode = 404;
+        }
+
+        return $meetHash;
     }
 }
