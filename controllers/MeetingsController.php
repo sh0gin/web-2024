@@ -144,13 +144,13 @@ class MeetingsController extends \yii\rest\ActiveController
 
     public function actionDeleteUser($meetHash, $leaderHash, $userId)
     {
-        $model_user_in_meet = UsersMeetings::findOne(['users_id' => $userId]);
         $model_meet = Meetings::findOne(['hash' => $meetHash]);
+        $model_user_in_meet = UsersMeetings::findOne(['users_id' => $userId, 'meetings_id' => $model_meet->id]);
         $model_leader = User::findOne(['hash' => $leaderHash]);
         if ($model_user_in_meet && $model_meet && $model_leader) {
             if ($model_meet->leader_id == $model_leader->id) {
                 Yii::$app->response->statusCode = 204;
-                $model_meet->delete();
+                $model_user_in_meet->delete();
             } else {
                 Yii::$app->response->statusCode = 403;
             }
@@ -351,7 +351,9 @@ class MeetingsController extends \yii\rest\ActiveController
                 $user_model = User::findOne(['email' => $post['email']]);
                 if ($user_model) {
                     $result = UsersMeetings::findOne(['meetings_id' => $model->id, 'users_id' => $user_model->id]);
-                    if (!$result) {
+                    $result_for_leader_test = Meetings::findOne(['id' => $model->id, 'leader_id' => $user_model->id]);
+
+                    if (!$result && !$result_for_leader_test) {
                         if ($user_model->validatePassword($post['password'])) {
                             $models_new_use_meetings = new UsersMeetings();
                             $models_new_use_meetings->meetings_id = $model->id;

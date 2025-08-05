@@ -2,8 +2,11 @@
 
 namespace app\controllers;
 
+use app\models\Meetings;
 use app\models\User;
+use app\models\UsersMeetings;
 use Yii;
+use yii\db\Query;
 use yii\filters\auth\HttpBearerAuth;
 
 class UserController extends \yii\rest\ActiveController
@@ -24,7 +27,7 @@ class UserController extends \yii\rest\ActiveController
         $behaviors['corsFilter'] = [
             'class' => \yii\filters\Cors::class,
             'cors' => [
-                'Origin' => [isset($_SERVER['HTTP_OROGIN']) ? $_SERVER['HTTP_ORIGIN'] : 'http://' . $_SERVER['REMOTE_ADDR']],
+                'Origin' => [isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : 'http://' . $_SERVER['REMOTE_ADDR']],
                 'Access-Control-Request-Method' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
                 'Access-Control-Request-Headers' => ['*'],
             ],
@@ -37,7 +40,7 @@ class UserController extends \yii\rest\ActiveController
 
         $auth = [
             'class' => HttpBearerAuth::class,
-            'only' => ['logout'],
+            'only' => ['logout', 'profile'],
         ];
         // re-add authentication filter
         $behaviors['authenticator'] = $auth;
@@ -72,11 +75,11 @@ class UserController extends \yii\rest\ActiveController
         $model = new User();
         $model->scenario = 'login';
         $model->load(Yii::$app->request->post(), '');
-        
+
         if ($model->validate()) {
             $user = User::findOne(['email' => $model->email]);
             if ($user && $user->validatePassword($model->password)) {
-                
+
                 $user->token = Yii::$app->security->generateRandomString();
                 $user->save(false);
                 return $this->asJson([
@@ -98,7 +101,37 @@ class UserController extends \yii\rest\ActiveController
         }
     }
 
-    public function actionLogout() {
-        return true;
+    public function actionLogout()
+    {
+        $user = User::findOne(Yii::$app->user->id);
+        $user->token = NULL;
+        $user->save();
+        Yii::$app->response->statusCode = 204;
+    }
+
+    public function actionProfile()
+    {
+        $user = User::findOne(Yii::$app->user->id);
+        $meets_leader = Meetings::findAll(['leader_id' => Yii::$app->user->id]);
+        $result_leader = [];
+        foreach ($meets_leader as $value) {
+            $result_leader[] = ['id' => $value->id, 'title' => $value->title, 'hash' => $value->hash, 'block' => $value->is_block];
+        }
+        $meets_parting = UsersMeetings::findAll(['users_id' => Yii::$app->user->id]);
+        $result_parting = [];
+        foreach ($meets_parting as $item) {
+            $value = Meetings::findOne($item->meetings_id);
+            $result_parting[] = ['id' => $value->id, 'title' => $value->title, 'hash' => $value->hash, 'block' => $value->is_block];
+        }
+
+        return $this->asJson([
+            'user' => [
+                'id' => $user->id,
+                'email' => $user->email,
+                'identifier' => $user->hash,
+                'meets_leader' => $result_leader,
+                'meets_partic' => $result_parting,
+            ]
+        ]);
     }
 }

@@ -129,7 +129,12 @@ $config = [
                 "OPTION api/logout" => 'meetings/download-file',
 
                 "GET api/meet/<meetHash>/<leaderHash>" => 'meetings/check-leader',
-                "OPTION api/logout" => 'user/logout',
+                "OPTION api/logout" => 'meetings/logout',
+
+                "GET api/profile" => 'user/profile',
+                "OPTION api/logout" => 'user/profile',
+
+                
             ],
         ]
     ],
