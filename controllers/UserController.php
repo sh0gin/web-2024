@@ -97,4 +97,8 @@ class UserController extends \yii\rest\ActiveController
             ]);
         }
     }
+
+    public function actionLogout() {
+        return true;
+    }
 }

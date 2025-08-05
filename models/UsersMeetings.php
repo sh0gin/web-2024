@@ -37,7 +37,7 @@ class UsersMeetings extends \yii\db\ActiveRecord
             [['meetings_id', 'users_id'], 'integer'],
             [['availables'], 'safe'],
             [['meetings_id'], 'exist', 'skipOnError' => true, 'targetClass' => Meetings::class, 'targetAttribute' => ['meetings_id' => 'id']],
-            [['users_id'], 'exist', 'skipOnError' => true, 'targetClass' => Users::class, 'targetAttribute' => ['users_id' => 'id']],
+            [['users_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['users_id' => 'id']],
         ];
     }
 

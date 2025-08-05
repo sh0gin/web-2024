@@ -88,22 +88,48 @@ $config = [
             'showScriptName' => false,
             'rules' => [
                 ['class' => 'yii\rest\UrlRule', 'controller' => 'user'],
+
                 "POST api/user/login" => 'user/login',
-                "OPTIONS api/user/login" => 'user/options',
+                "OPTION api/user/login" => 'user/option',
+
                 "POST api/meet" => 'meetings/create',
-                "OPTIONS api/meet" => 'meetings/options',
+                "OPTION api/meet" => 'meetings/option',
+
+                "POST api/meet/<meetHash>/login" => 'meetings/join-meeting',
+                "OPTION api/meet/<meetHash>/login" => 'meetings/option',
+
                 "DELETE api/meet/<meetHash>/<leaderHash>/user/<userId>" => 'meetings/delete-user',
-                "OPTIONS api/meet/<meetHash>/<leaderHash>/user/<userId>" => 'meetings/options',
+                "OPTION api/meet/<meetHash>/<leaderHash>/user/<userId>" => 'meetings/option',
+
                 "DELETE api/meet/<meetHash>/<leaderHash>/file/<filename>" => 'meetings/delete-file',
-                "OPTIONS api/meet/<meetHash>/<leaderHash>/file/<filename>" => 'meetings/options',
+                "OPTION api/meet/<meetHash>/<leaderHash>/file/<filename>" => 'meetings/option',
+
                 "PATCH api/meet/<meetHash>/<leaderHash>" => 'meetings/block-meetings',
-                "OPTIONS api/meet/<meetHash>/<leaderHash>" => 'meetings/options',
+                "OPTION api/meet/<meetHash>/<leaderHash>" => 'meetings/option',
+
                 "POST api/meet/<meetHash>/<leaderHash>" => 'meetings/upload-files',
-                "OPTIONS api/meet/<meetHash>/<leaderHash>" => 'meetings/options',
+                "OPTION api/meet/<meetHash>/<leaderHash>" => 'meetings/option',
+
                 "POST api/meet/<meetHash>/<leaderHash>/invite" => 'meetings/send-emails',
-                "OPTIONS api/meet/<meetHash>/<leaderHash>/invite" => 'meetings/options',
+                "OPTION api/meet/<meetHash>/<leaderHash>/invite" => 'meetings/option',
+
                 "GET api/meet/<meetHash>/" => 'meetings/view-meeting',
-                "OPTIONS api/meet/<meetHash>/" => 'meetings/options',
+                "OPTION api/meet/<meetHash>/" => 'meetings/option',
+
+                "PATCH api/meet/<meetHash>/user/<userID>" => 'meetings/change-availables',
+                "OPTION api/meet/<meetHash>/user/<userID>" => 'meetings/option',
+
+                "DELETE api/meet/<meetHash>/<leaderHash>" => 'meetings/delete-meeting',
+                "OPTION api/meet/<meetHash>/user/<userID>" => 'meetings/option',
+
+                "GET api/logout" => 'user/logout',
+                "OPTION api/logout" => 'user/logout',
+
+                "GET api/meet/<meetHash>/file/<filename>" => 'meetings/download-file',
+                "OPTION api/logout" => 'meetings/download-file',
+
+                "GET api/meet/<meetHash>/<leaderHash>" => 'meetings/check-leader',
+                "OPTION api/logout" => 'user/logout',
             ],
         ]
     ],

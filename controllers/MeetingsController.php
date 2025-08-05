@@ -188,6 +188,7 @@ class MeetingsController extends \yii\rest\ActiveController
             if ($model_meet->leader_id == $model_leader->id) {
                 if (!$model_meet->is_block) {
                     $model_meet->is_block = 1;
+                    $model_meet->save(false);
                 } else {
                     Yii::$app->response->statusCode = 409;
                     return $this->asJson([
@@ -339,5 +340,120 @@ class MeetingsController extends \yii\rest\ActiveController
         }
 
         return $meetHash;
+    }
+
+    public function actionJoinMeeting($meetHash)
+    {
+        $model = Meetings::findOne(['hash' => $meetHash]);
+        $post = Yii::$app->request->post();
+        if ($model) {
+            if (!$model->is_block == 1) {
+                $user_model = User::findOne(['email' => $post['email']]);
+                if ($user_model) {
+                    $result = UsersMeetings::findOne(['meetings_id' => $model->id, 'users_id' => $user_model->id]);
+                    if (!$result) {
+                        if ($user_model->validatePassword($post['password'])) {
+                            $models_new_use_meetings = new UsersMeetings();
+                            $models_new_use_meetings->meetings_id = $model->id;
+                            $models_new_use_meetings->users_id = $user_model->id;
+                            $models_new_use_meetings->availables = [1, 1, 1, 1, 1, 1, 1, 1];
+                            $user_model->token = Yii::$app->security->generateRandomString();
+                            $models_new_use_meetings->save(false);
+                            $user_model->save(false);
+                            return $this->asJson([
+                                'data' => [
+                                    'user' => [
+                                        'id' => $user_model->id,
+                                        'token' => $user_model->token,
+                                    ]
+                                ]
+                            ]);
+                        } else {
+                            Yii::$app->response->statusCode = 401;
+                        };
+                    } else {
+                        Yii::$app->response->statusCode = 403;
+                    }
+                } else {
+                    Yii::$app->response->statusCode = 401;
+                }
+            } else {
+                Yii::$app->response->statusCode = 400;
+                return $this->asJson([
+                    'error' => [
+                        'code' => 400,
+                        'message' => 'Встреча заблокированна',
+                    ]
+                ]);
+            }
+        } else {
+            Yii::$app->response->statusCode = 404;
+        }
+    }
+
+    public function actionChangeAvailables($meetHash, $userID)
+    {
+        $model_meet = Meetings::findOne(['hash' => $meetHash]);
+        $user_model = User::findOne($userID);
+
+        if ($model_meet && $user_model) {
+            $model = UsersMeetings::findOne(['meetings_id' => $model_meet->id, 'users_id' => $user_model->id]);
+            if ($model) {
+                Yii::$app->response->statusCode = 204;
+                $model->availables = Yii::$app->request->post()['availables'];
+                $model->save(false);
+            } else {
+                Yii::$app->response->statusCode = 403;
+            }
+        } else {
+            Yii::$app->response->statusCode = 404;
+        }
+    }
+
+    public function actionDeleteMeeting($meetHash, $leaderHash)
+    {
+        $meetings = Meetings::findOne(['hash' => $meetHash]);
+        $leader = User::findOne(['hash' => $leaderHash]);
+
+        if ($meetings && $leader) {
+            if (Meetings::findOne(['hash' => $meetHash, 'leader_id' => $leader->id])) {
+                Yii::$app->response->statusCode = 204;
+                $meetings->delete();
+            } else {
+                Yii::$app->response->statusCode = 403;
+            }
+        } else {
+            Yii::$app->response->statusCode = 404;
+        }
+    }
+
+    public function actionDownloadFile($meetHash, $filename)
+    {
+        $meetings = Meetings::findOne(['hash' => $meetHash]);
+        if ($meetings) {
+            $path_files = __DIR__ . "/../models/uploads/$filename";
+            if (!is_file($path_files)) {
+                Yii::$app->response->statusCode = 404;
+            } else {
+                Yii::$app->response->sendFile($path_files);
+            };
+        } else {
+            Yii::$app->response->statusCode = 404;
+        }
+    }
+
+    public function actionCheckLeader($meetHash, $leaderHash)
+    {
+        $meetings = Meetings::findOne(['hash' => $meetHash]);
+        $leader = User::findOne(['hash' => $leaderHash]);
+        if ($meetings && $leader) {
+            if ($meetings->leader_id == $leader->id) {
+                Yii::$app->response->statusCode = 204;
+            } else {
+                Yii::$app->response->statusCode = 403;
+            }
+        } else {
+            Yii::$app->response->statusCode = 404;
+        }
     }
 }
