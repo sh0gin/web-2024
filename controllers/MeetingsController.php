@@ -147,6 +147,7 @@ class MeetingsController extends \yii\rest\ActiveController
         $model_meet = Meetings::findOne(['hash' => $meetHash]);
         $model_user_in_meet = UsersMeetings::findOne(['users_id' => $userId, 'meetings_id' => $model_meet->id]);
         $model_leader = User::findOne(['hash' => $leaderHash]);
+        return $model_leader;
         if ($model_user_in_meet && $model_meet && $model_leader) {
             if ($model_meet->leader_id == $model_leader->id) {
                 Yii::$app->response->statusCode = 204;
