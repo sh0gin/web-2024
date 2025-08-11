@@ -97,7 +97,7 @@ class MeetingsController extends \yii\rest\ActiveController
                         'error' => [
                             'code' => 422,
                             'message' => 'Validation error',
-                            'errors' => $model->getErrors(),
+                            'errors' => $model->errors(),
                         ]
                     ]);
                 };
@@ -108,6 +108,11 @@ class MeetingsController extends \yii\rest\ActiveController
             $model->hash = Yii::$app->security->generateRandomString();
             $model->leader_id = $user->id;
             $model->save(false);
+            $user_meetings = new UsersMeetings();
+            $user_meetings->meetings_id = $model->id;
+            $user_meetings->users_id = $user->id;
+            $user_meetings->availables = [0, 0, 0, 0, 0, 0, 0, 0];
+            $user_meetings->save();
 
             foreach ($model->dates as $value) {
 
@@ -120,7 +125,7 @@ class MeetingsController extends \yii\rest\ActiveController
                         'error' => [
                             'code' => 422,
                             'message' => 'Validation error',
-                            'errors' => $model_date->getErrors(),
+                            'errors' => $model_date->errors,
                         ]
                     ]);
                 }
@@ -138,7 +143,13 @@ class MeetingsController extends \yii\rest\ActiveController
                 ]
             ]);
         } else {
-            return $model->getErrors();
+            return $this->asJson([
+                'error' => [
+                    'code' => 422,
+                    'message' => 'Validation error',
+                    'errors' => $model->errors,
+                ]
+            ]);
         }
     }
 
@@ -147,7 +158,6 @@ class MeetingsController extends \yii\rest\ActiveController
         $model_meet = Meetings::findOne(['hash' => $meetHash]);
         $model_user_in_meet = UsersMeetings::findOne(['users_id' => $userId, 'meetings_id' => $model_meet->id]);
         $model_leader = User::findOne(['hash' => $leaderHash]);
-        return $model_leader;
         if ($model_user_in_meet && $model_meet && $model_leader) {
             if ($model_meet->leader_id == $model_leader->id) {
                 Yii::$app->response->statusCode = 204;
@@ -168,16 +178,15 @@ class MeetingsController extends \yii\rest\ActiveController
         if ($model_meet) {
             if ($model_meet->leader_id == $model_leader->id) {
                 $model_files = Files::findOne(['meetings_id' => $model_meet->id, 'filename' => $filename]);
-                Yii::$app->response->statusCode = 204;
+                unlink(__DIR__ . "/../models/uploads/$filename");
                 $model_files->delete();
+                Yii::$app->response->statusCode = 204;
             } else {
                 Yii::$app->response->statusCode = 403;
             }
         } else {
             Yii::$app->response->statusCode = 404;
         }
-
-        return ['Jesus is Kind forever :))))))', $meetHash, $leaderHash, $filename];
     }
 
     public function actionBlockMeetings($meetHash, $leaderHash)
@@ -248,7 +257,7 @@ class MeetingsController extends \yii\rest\ActiveController
                     Yii::$app->response->statusCode = 204;
                 } else {
                     return $this->asJson([
-                        $model->getErrors(),
+                        $model->errors,
                     ]);
                 }
             } else {
@@ -270,7 +279,7 @@ class MeetingsController extends \yii\rest\ActiveController
 
                 $query->select(['users_meetings.id', 'users.email']) // 
                     ->from('users_meetings')
-                    ->leftJoin('users', 'users_meetings.users_id = users.id')
+                    ->innerJoin('users', 'users_meetings.users_id = users.id')
                     ->where(['meetings_id' => $meetings->id]);
 
                 foreach (Yii::$app->request->post() as $value) {
@@ -302,17 +311,41 @@ class MeetingsController extends \yii\rest\ActiveController
         if ($model) {
             $leader = User::findOne($model->leader_id);
             $query = new Query();
-            $dates = array_reduce($query->select('date')->from('dates_meetings')->where(['meetings_id' => $model->id])->all(), function ($carry, $item) {
+            $dates = array_reduce($query
+                ->select('date')
+                ->from('dates_meetings')
+                ->where(['meetings_id' => $model->id])
+                ->all(), function ($carry, $item) {
                 $carry[] = $item['date'];
                 return $carry;
             });
-            $image = Files::findOne(['meetings_id' => $model->id, 'extension' => ['png', 'jpg', 'jpeg']])->filename;
-            $files = array_reduce(Files::find()->where(['meetings_id' => $model->id, 'extension' => ['pdf']])->all(), function ($carry, $item) {
+            // $dates = array_map(fn($item) => $item, $query // как мапом делать .. {{host2}}api/meet/SM6N-pqV07NnEMAfYuqEhH6ldRWQLLHI
+            //     ->select('date')
+            //     ->from('dates_meetings')
+            //     ->where(['meetings_id' => $model->id])
+            //     ->all());
+            // return $dates;
+            $image = Files::findOne(['meetings_id' => $model->id, 'extension' => ['png', 'jpg', 'jpeg']]);
+            if ($image) {
+                $image = $image->filename;
+            } else {
+                $image = Null;
+            }
+
+            $files = array_reduce(Files::find()
+                ->where(['meetings_id' => $model->id, 'extension' => ['pdf']])
+                ->all(), function ($carry, $item) {
                 $carry[] = $item['filename'];
                 return $carry;
             });
             $query = new Query();
-            $users = array_reduce($query->select('users.email, users.id, availables')->from('users_meetings')->where(['meetings_id' => $model->id])->leftJoin('users', 'users.id = users_meetings.users_id')->all(), function ($carry, $item) {
+
+            $users = array_reduce($query
+                ->select('users.email, users.id, availables')
+                ->from('users_meetings')
+                ->where(['meetings_id' => $model->id])
+                ->innerJoin('users', 'users.id = users_meetings.users_id')
+                ->all(), function ($carry, $item) {
                 $carry[$item['email']] = ['id' => $item['id'], 'availables' => $item['availables']];
                 return $carry;
             });
@@ -327,7 +360,7 @@ class MeetingsController extends \yii\rest\ActiveController
                     'end' => $model->end,
                     'interval' => 60,
                     'block' => $model->is_block,
-                    'user' => $users,
+                    'users' => $users,
                     'leader' => [
                         'id' => $leader->id,
                         'login' => $leader->email,
@@ -337,10 +370,8 @@ class MeetingsController extends \yii\rest\ActiveController
                 ]
             ]);
         } else {
-            Yii::$app->request->statusCode = 404;
+            Yii::$app->response->statusCode = 404;
         }
-
-        return $meetHash;
     }
 
     public function actionJoinMeeting($meetHash)
@@ -359,7 +390,7 @@ class MeetingsController extends \yii\rest\ActiveController
                             $models_new_use_meetings = new UsersMeetings();
                             $models_new_use_meetings->meetings_id = $model->id;
                             $models_new_use_meetings->users_id = $user_model->id;
-                            $models_new_use_meetings->availables = [1, 1, 1, 1, 1, 1, 1, 1];
+                            $models_new_use_meetings->availables = [0, 0, 0, 0, 0, 0, 0, 0, 0];
                             $user_model->token = Yii::$app->security->generateRandomString();
                             $models_new_use_meetings->save(false);
                             $user_model->save(false);

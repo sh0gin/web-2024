@@ -54,7 +54,7 @@ class Meetings extends \yii\db\ActiveRecord
             [['dates'], 'required', 'message' => 'Количество дат должно быть от 1 до 5'],
             [['dates'], 'validateArray'],
             [['dates'], 'validateDatesEqual'],
-            [['dates'], 'each', 'rule' => ['date', 'format' => 'php:d-m-Y', 'min' => strtotime(date('Y-m-d')), 'max' => time() + 2592000, 'message' => 'Дату встречи можно выбрать только на 30 дней вперёд']],
+            [['dates'], 'each', 'rule' => ['date', 'format' => 'php:d-m-Y', 'min' => strtotime(date('Y-m-d')), 'max' => time() + 2592000, 'tooBig' => "Дата должна не больше чем " . date('d-m-Y', time() + 2592000), 'tooSmall' => "Дата должна не меньше чем " . date('d-m-Y')]],
 
 
 

@@ -42,6 +42,7 @@ class UserController extends \yii\rest\ActiveController
             'class' => HttpBearerAuth::class,
             'only' => ['logout', 'profile'],
         ];
+        
         // re-add authentication filter
         $behaviors['authenticator'] = $auth;
         // avoid authentication on CORS-pre-flight requests (HTTP OPTIONS method)
@@ -95,7 +96,7 @@ class UserController extends \yii\rest\ActiveController
                 'error' => [
                     'code' => 422,
                     'message' => 'Validation error',
-                    'errors' => $model->getErrors(),
+                    'errors' => $model->errors,
                 ]
             ]);
         }
@@ -114,6 +115,7 @@ class UserController extends \yii\rest\ActiveController
         $user = User::findOne(Yii::$app->user->id);
         $meets_leader = Meetings::findAll(['leader_id' => Yii::$app->user->id]);
         $result_leader = [];
+
         foreach ($meets_leader as $value) {
             $result_leader[] = ['id' => $value->id, 'title' => $value->title, 'hash' => $value->hash, 'block' => $value->is_block];
         }

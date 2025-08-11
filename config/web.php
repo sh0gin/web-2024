@@ -42,7 +42,7 @@ $config = [
                 }
                 if ($response->statusCode == 403) {
                     $response->data = [
-                        'code' => 404,
+                        'code' => 403,
                         'message' => 'Недоступно для вас'
                     ];
                 }
