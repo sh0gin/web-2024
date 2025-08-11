@@ -75,6 +75,7 @@ class UserController extends \yii\rest\ActiveController
     {
         $model = new User();
         $model->scenario = 'login';
+
         $model->load(Yii::$app->request->post(), '');
 
         if ($model->validate()) {
@@ -108,6 +109,7 @@ class UserController extends \yii\rest\ActiveController
         $user->token = NULL;
         $user->save();
         Yii::$app->response->statusCode = 204;
+        return;
     }
 
     public function actionProfile()
