@@ -114,7 +114,6 @@ class UserController extends \yii\rest\ActiveController
 
     public function actionProfile()
     {
-        $user = User::findOne(Yii::$app->user->id);
         $meets_leader = Meetings::findAll(['leader_id' => Yii::$app->user->id]);
         $result_leader = [];
 
@@ -130,9 +129,9 @@ class UserController extends \yii\rest\ActiveController
 
         return $this->asJson([
             'user' => [
-                'id' => $user->id,
-                'email' => $user->email,
-                'identifier' => $user->hash,
+                'id' => Yii::$app->user->identity->id,
+                'email' => Yii::$app->user->identity->email,
+                'identifier' => Yii::$app->user->identity->hash,
                 'meets_leader' => $result_leader,
                 'meets_partic' => $result_parting,
             ]
